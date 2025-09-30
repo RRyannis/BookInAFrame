@@ -1,6 +1,10 @@
-const getPosts = require("../controllers/postsController");
+const { getPosts, getPost } = require("../controllers/postsController");
 const{ requireAuth }=require("../../middlewares/auth");
 
-const routes = ('/posts', getPosts);
+const getPostsRoute = ('/posts', getPosts);
+const getPostRoute = ('/posts/:id', getPost);
 
-module.exports = routes;
+module.exports = {
+    getPostsRoute,
+    getPostRoute
+};

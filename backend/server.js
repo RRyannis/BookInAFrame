@@ -1,7 +1,7 @@
 require('dotenv').config();
 const express = require('express');
 const { createClient } = require('@supabase/supabase-js');
-const routes  = require('./src/posts/routes/postsRoutes');
+const { getPostsRoute, getPostRoute }  = require('./src/posts/routes/postsRoutes');
 
 const app = express();
 
@@ -16,4 +16,5 @@ app.listen(3000, () => {
     console.log(new Date().toLocaleTimeString() + `: Server is running on port ${process.env.PORT}`)
 })
 
-app.use(routes);
+app.use(getPostRoute);
+app.use(getPostRoute);

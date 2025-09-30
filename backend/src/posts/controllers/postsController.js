@@ -2,7 +2,7 @@ const supabase = require("../../db/createClient");
 
 const getPosts = async (req, res) => {
   try {
-    const { data, error } = await supabase.from('posts').select();
+    const { data, error } = await supabase.from('posts').select('id, image_url, caption, created_at');
 
     if (error) {
       return res.status(400).json({ error: error.message });
@@ -16,8 +16,41 @@ const getPosts = async (req, res) => {
   }
 };
 
+const getPost = async (req, res) => {
+  try{
+    const { id } = req.params;
+    const { data, error } = await supabase.from('posts').select(`
+    id,
+    image_url,
+    caption,
+    created_at,
+    profiles ( username, avatar_url ),
+    books ( title, author )
+  `).eq("id", id).single();
 
-module.exports = getPosts;
+    if(error){
+      return res.status(400).json({ error: error.message });
+    }
+
+    const post = {
+      ...data,
+      likes_count: data.likes[0]?.count ?? 0,
+    };
+    delete post.likes;
+
+    console.log(post);
+    return res.json(post);
+  }catch(err){
+    console.error(err);
+    return res.status(500).json({ error: 'Server error' });
+  }
+}
+
+
+module.exports = { 
+  getPosts,
+  getPost
+};
 
 
 
