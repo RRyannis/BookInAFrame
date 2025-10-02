@@ -16,5 +16,5 @@ app.listen(3000, () => {
     console.log(new Date().toLocaleTimeString() + `: Server is running on port ${process.env.PORT}`)
 })
 
-app.use(getPostRoute);
+app.use(getPostsRoute);
 app.use(getPostRoute);
