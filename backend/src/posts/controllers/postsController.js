@@ -46,6 +46,10 @@ const getPost = async (req, res) => {
   }
 }
 
+const createPost = asyc (req, res) => {
+try{}catch(error){}
+};
+
 
 module.exports = { 
   getPosts,
