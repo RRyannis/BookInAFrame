@@ -46,14 +46,25 @@ const getPost = async (req, res) => {
   }
 }
 
-const createPost = asyc (req, res) => {
-try{}catch(error){}
+const createPost = async (req, res) => {
+  try{
+    const { data, error } = await supabase.from('posts').insert([req.body]).select();
+    if (error){
+      return res.status(400).json(error);
+    }
+    return res.status(200).json(data);
+
+  } catch(err) {
+    console.error(err);
+    return res.status(500).json({ error: 'Server error' });
+  }
 };
 
 
 module.exports = { 
   getPosts,
-  getPost
+  getPost,
+  createPost
 };
 
 
