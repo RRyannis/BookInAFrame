@@ -1,0 +1,62 @@
+CREATE TABLE public.profiles (
+   id uuid not null references auth.users on delete cascade,
+   first_name text,
+   last_name text,
+   bio text,
+   avatar text,
+   primary key (id)
+);
+
+ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Can only view own profile data."
+  ON public.profiles
+  FOR SELECT
+  TO authenticated
+  USING ((SELECT auth.uid()) = id);
+
+  CREATE POLICY "Can only update own profile data."
+  ON public.profiles
+  FOR UPDATE
+  TO authenticated
+  USING ((SELECT auth.uid()) = id)
+  WITH CHECK ((SELECT auth.uid()) = id);
+
+  CREATE 
+OR REPLACE FUNCTION public.create_profile() RETURNS TRIGGER AS $$ BEGIN INSERT INTO public.profiles (id, first_name, last_name) 
+VALUES 
+  (
+    NEW.id,
+    NEW.raw_user_meta_data ->> 'first_name', 
+    NEW.raw_user_meta_data ->> 'last_name'
+  );
+RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+
+CREATE TRIGGER create_profile_trigger 
+AFTER 
+  INSERT ON auth.users FOR EACH ROW WHEN (
+    NEW.raw_user_meta_data IS NOT NULL
+  ) EXECUTE FUNCTION public.create_profile();
+
+  CREATE OR REPLACE FUNCTION public.create_profile()
+RETURNS TRIGGER AS $$
+BEGIN
+  INSERT INTO public.profiles (id, first_name, last_name)
+  VALUES (
+    NEW.id,
+    COALESCE(NEW.raw_user_meta_data ->> 'first_name', ''),
+    COALESCE(NEW.raw_user_meta_data ->> 'last_name', '')
+  );
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+DROP TRIGGER IF EXISTS create_profile_trigger ON auth.users;
+
+CREATE TRIGGER create_profile_trigger
+AFTER INSERT ON auth.users
+FOR EACH ROW
+EXECUTE FUNCTION public.create_profile();
