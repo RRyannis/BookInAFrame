@@ -1,81 +1,60 @@
-// const supabase = require("../../db/createClient");
+const supabase = require("../../db/createClient");
 
-// const createUserAndProfile = async (req, res) => {
+const getUsers = async (req, res) => {
+  try{
+    const { users, error } = await supabase.from('profiles').select();
 
-//     const { email, password, first_name = '', last_name = '' } = req.body;
+    if (error) {
+      return res.status(400).json({ error: error.message });
+    }
+    console.log(users);
+    return res.json(users);
 
-//     try {
-//         const { data: user, error: userError } = await supabase.auth.admin.createUser({
-//             email,
-//             password,
-//             email_confirm: true, // optional: marks email as confirmed
-//             user_metadata: { first_name, last_name }
-//         });
-
-//         if (userError) {
-//             return res.status(400).json({ error: userError.message });
-//         }
-//         const { data: profile, error: profileError } = await supabase
-//         .from('profiles')
-//         .insert({
-//             id: user.id,
-//             first_name,
-//             last_name
-//         })
-//         .select()
-//         .single();
-
-//         if (profileError) {
-//             return res.status(400).json({ error: profileError.message });
-//         }
-
-//         return res.status(201).json({ user, profile });
-//     } catch (err){
-//         console.error(err);
-//         return res.status(500).json({ error: 'Server error' });
-//     }
-// };
-
-// module.exports = { createUserAndProfile };
-// src/users/controllers/usersController.js
-const supabase = require('../../db/createClient');
-
+  } catch (err) {
+      console.error(err);
+      return res.status(500).json({ error: 'Server error' });
+  }
+}
 const createUserAndProfile = async (req, res) => {
-  const { email, password, first_name = '', last_name = '' } = req.body;
+  // Directly destructure full_name from req.body
+  const { email, password, full_name = '', avatar_url = '' } = req.body;
 
   try {
-    // 1️⃣ Create the user in Supabase Auth
     const { data: user, error: userError } = await supabase.auth.admin.createUser({
       email,
       password,
       email_confirm: true,
-      user_metadata: { first_name, last_name }
+      user_metadata: {
+        // Pass full_name directly from req.body
+        full_name: full_name,
+        avatar_url: avatar_url
+      }
     });
 
     if (userError) {
       return res.status(400).json({ error: userError.message });
     }
 
-    // 2️⃣ Insert a corresponding profile row manually
-    const { data: profile, error: profileError } = await supabase
+    const { data: profile, error: profileFetchError } = await supabase
       .from('profiles')
-      .insert({
-        id: user.id,
-        first_name,
-        last_name
-      })
-      .select()
+      .select('id, username, full_name, avatar_url, website, updated_at')
+      .eq('id', user.user.id)
       .single();
 
-    if (profileError) {
-      return res.status(400).json({ error: profileError.message });
+    if (profileFetchError) {
+      console.warn("Failed to fetch profile after creation:", profileFetchError.message);
+      return res.status(201).json({ user: user.user, profile: null, warning: "Profile fetch failed, but user created." });
     }
 
-    return res.status(201).json({ user, profile });
+    return res.status(201).json({ user: user.user, profile });
+
   } catch (err) {
-    console.error(err);
-    return res.status(500).json({ error: 'Server error' });
+    console.error("Server error during user creation:", err);
+    return res.status(500).json({ error: 'Server error: ' + err.message });
   }
 };
 
-module.exports = { createUserAndProfile };
+module.exports = { 
+  getUsers,
+  createUserAndProfile };
+
