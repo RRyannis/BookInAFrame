@@ -2,13 +2,13 @@ const supabase = require("../../db/createClient");
 
 const getUsers = async (req, res) => {
   try{
-    const { users, error } = await supabase.from('profiles').select();
+    const { data, error } = await supabase.from('profiles').select();
 
     if (error) {
       return res.status(400).json({ error: error.message });
     }
-    console.log(users);
-    return res.json(users);
+    console.log(data);
+    return res.status(202).json(data);
 
   } catch (err) {
       console.error(err);
