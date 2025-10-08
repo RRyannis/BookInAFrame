@@ -60,11 +60,73 @@ const createPost = async (req, res) => {
   }
 };
 
+const updatePost = async (req, res) => {
+  const { id } = req.params;
+
+  const allowedUpdateFields = [];
+
+  const updateData = {};
+
+  for (const field of allowedUpdateFields) {
+        if (req.body[field] !== undefined) {
+        updateData[field] = req.body[field];
+        }
+  }
+  //updateData.updated_at = new Date().toISOString();
+
+  
+  if (Object.keys(updateData).length <= 1 && updateData.updated_at) {
+      return res.status(400).json({ error: 'No valid fields provided for update.' });
+  }
+  try{
+      const { data, error } = await supabase.from('posts').update(updateData).eq("id", id).select();
+        
+      if (error) {
+      console.error("Error updating post:", error.message);
+      return res.status(400).json({ error: error.message });
+      }
+
+      if (!data || data.length === 0) {
+      return res.status(404).json({ error: 'Post not found.' });
+      }
+
+      console.log(data);
+      return res.status(201).json(data[0]);
+
+    } catch (err){
+      console.error(err);
+      return res.status(500).json({ error: 'Server error' });
+    }
+};
+
+const deletePost = async (req, res) => {
+  const { id } = req.params;
+  try{
+    const { error, count } = await supabase.from('posts').delete().eq('id', id);
+
+    if (error) {
+      console.error("Error deleting post:", error.message);
+      return res.status(400).json({ error: error.message });
+    }
+
+    if (count === 0){
+      return res.status(404).json({ message: 'Post not found.' });
+    }
+
+    return res.status(201).json({ message: `Post with ID ${id} deleted successfully.` });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ error: 'Server error' });
+  }
+}; 
+
 
 module.exports = { 
   getPosts,
   getPost,
-  createPost
+  createPost,
+  updatePost,
+  deletePost
 };
 
 

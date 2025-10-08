@@ -15,6 +15,14 @@ const getUsers = async (req, res) => {
       return res.status(500).json({ error: 'Server error' });
   }
 }
+const getUser = async (req, res) => {
+  const { id } = req.params;
+  try{
+
+  } catch (err) {
+    
+  }
+};
 const createUserAndProfile = async (req, res) => {
   // Directly destructure full_name from req.body
   const { email, password, full_name = '', avatar_url = '' } = req.body;
