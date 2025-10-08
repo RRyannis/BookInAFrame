@@ -9,7 +9,7 @@ const getPosts = async (req, res) => {
     }
 
     console.log(data);
-    return res.json(data);
+    return res.status(201).json(data);
   } catch (err) {
     console.error(err);
     return res.status(500).json({ error: 'Server error' });
@@ -39,7 +39,7 @@ const getPost = async (req, res) => {
     delete post.likes;
 
     console.log(post);
-    return res.json(post);
+    return res.status(201).json(post);
   }catch(err){
     console.error(err);
     return res.status(500).json({ error: 'Server error' });
@@ -52,7 +52,7 @@ const createPost = async (req, res) => {
     if (error){
       return res.status(400).json(error);
     }
-    return res.status(200).json(data);
+    return res.status(201).json(data);
 
   } catch(err) {
     console.error(err);
