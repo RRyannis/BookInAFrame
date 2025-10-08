@@ -4,6 +4,7 @@ const express = require('express');
 const supabase = require('../backend/src/db/createClient');
 const postsRouter = require('./src/posts/routes/postsRoutes');
 const profilesRouter = require('./src/users/routes/usersRoutes');
+const booksRouter = require('./src/books/routes/booksRoutes');
 
 
 const app = express();
@@ -21,3 +22,4 @@ app.listen(3000, () => {
 
 app.use(postsRouter);
 app.use(profilesRouter);
+app.use(booksRouter);
