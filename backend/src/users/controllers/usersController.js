@@ -18,9 +18,18 @@ const getUsers = async (req, res) => {
 const getUser = async (req, res) => {
   const { id } = req.params;
   try{
+    const { data, error } = await supabase.from('profiles').select().eq("id", id);
+
+     if (error) {
+            return res.status(400).json({ error: error.message });
+      }
+
+      console.log(data);
+      return res.status(201).json(data);
 
   } catch (err) {
-    
+      console.error(err);
+      return res.status(500).json({ error: 'Server error' });
   }
 };
 const createUserAndProfile = async (req, res) => {
@@ -64,5 +73,6 @@ const createUserAndProfile = async (req, res) => {
 
 module.exports = { 
   getUsers,
+  getUser,
   createUserAndProfile };
 

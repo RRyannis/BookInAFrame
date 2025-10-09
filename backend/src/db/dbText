@@ -1,62 +1,161 @@
+-- Create the profiles table
 CREATE TABLE public.profiles (
-   id uuid not null references auth.users on delete cascade,
-   first_name text,
-   last_name text,
-   bio text,
-   avatar text,
-   primary key (id)
+  id uuid REFERENCES auth.users(id) ON DELETE CASCADE PRIMARY KEY,
+  username text UNIQUE,
+  avatar_url text,
+  full_name text,
+  website text,
+  updated_at timestamp with time zone
 );
 
+-- Set up Row Level Security (RLS)
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "Can only view own profile data."
-  ON public.profiles
-  FOR SELECT
-  TO authenticated
-  USING ((SELECT auth.uid()) = id);
+-- Allow authenticated users to view all profiles
+CREATE POLICY "Public profiles are viewable by everyone."
+  ON public.profiles FOR SELECT
+  USING (true);
 
-  CREATE POLICY "Can only update own profile data."
-  ON public.profiles
-  FOR UPDATE
-  TO authenticated
-  USING ((SELECT auth.uid()) = id)
-  WITH CHECK ((SELECT auth.uid()) = id);
+-- Allow authenticated users to update their own profile
+CREATE POLICY "Users can update their own profile."
+  ON public.profiles FOR UPDATE
+  USING (auth.uid() = id);
 
-  CREATE 
-OR REPLACE FUNCTION public.create_profile() RETURNS TRIGGER AS $$ BEGIN INSERT INTO public.profiles (id, first_name, last_name) 
-VALUES 
-  (
-    NEW.id,
-    NEW.raw_user_meta_data ->> 'first_name', 
-    NEW.raw_user_meta_data ->> 'last_name'
-  );
-RETURN NEW;
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+-- No INSERT policy needed here, as we'll use a trigger
+-- No DELETE policy needed, as ON DELETE CASCADE handles it
 
 
-CREATE TRIGGER create_profile_trigger 
-AFTER 
-  INSERT ON auth.users FOR EACH ROW WHEN (
-    NEW.raw_user_meta_data IS NOT NULL
-  ) EXECUTE FUNCTION public.create_profile();
 
-  CREATE OR REPLACE FUNCTION public.create_profile()
+-- Create a function to handle new user profile creation
+CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS TRIGGER AS $$
 BEGIN
-  INSERT INTO public.profiles (id, first_name, last_name)
-  VALUES (
-    NEW.id,
-    COALESCE(NEW.raw_user_meta_data ->> 'first_name', ''),
-    COALESCE(NEW.raw_user_meta_data ->> 'last_name', '')
-  );
+  INSERT INTO public.profiles (id, username, full_name, avatar_url)
+  VALUES (NEW.id, NEW.email, NEW.raw_user_meta_data->>'full_name', NEW.raw_user_meta_data->>'avatar_url');
   RETURN NEW;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
-DROP TRIGGER IF EXISTS create_profile_trigger ON auth.users;
+-- Create the trigger that fires on new user insertion
+CREATE TRIGGER on_auth_user_created
+  AFTER INSERT ON auth.users
+  FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
 
-CREATE TRIGGER create_profile_trigger
-AFTER INSERT ON auth.users
-FOR EACH ROW
-EXECUTE FUNCTION public.create_profile();
+DROP TRIGGER on_auth_user_created ON auth.users;
+
+-- Create the books table
+CREATE TABLE public.books (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  created_at timestamp with time zone DEFAULT now() NOT NULL,
+  updated_at timestamp with time zone,
+
+  -- Google Books specific identifier
+  google_books_id text UNIQUE NOT NULL,
+
+  -- Core Book Information
+  title text NOT NULL,
+  subtitle text,
+  authors text[] DEFAULT '{}'::text[], -- Array of authors, e.g., ['J.K. Rowling', 'Mary GrandPré']
+  publisher text,
+  published_date date, -- Can be parsed from Google Books API string (e.g., '2005-09-01')
+  description text,
+  page_count integer,
+  language text DEFAULT 'en',
+
+  -- Identifiers
+  isbn_13 text UNIQUE,
+  isbn_10 text UNIQUE,
+
+  -- Cover Images (Google Books API often provides various sizes)
+  thumbnail_url text, -- Smaller cover image
+  large_cover_url text, -- Larger cover image
+
+  -- Ratings & Categories
+  average_rating numeric(3, 2), -- e.g., 4.50
+  ratings_count integer,
+  categories text[] DEFAULT '{}'::text[] -- Array of categories/genres
+);
+
+-- Optional: Create an index for faster searching on title or authors
+CREATE INDEX idx_books_title ON public.books USING gin (to_tsvector('english', title));
+CREATE INDEX idx_books_authors ON public.books USING gin (authors);
+
+-- Set up Row Level Security (RLS)
+ALTER TABLE public.books ENABLE ROW LEVEL SECURITY;
+
+-- Allow all users to view books (essential for searching and displaying)
+CREATE POLICY "Books are viewable by everyone."
+  ON public.books FOR SELECT
+  USING (true);
+
+-- Allow only authenticated administrators (or your backend service role) to insert, update, and delete books
+-- This assumes your backend logic uses the Supabase service_role key to manage books.
+CREATE POLICY "Service role can manage books."
+  ON public.books FOR ALL -- This covers INSERT, UPDATE, DELETE
+  TO service_role
+  USING (true) WITH CHECK (true);
+
+-- If you want non-service-role admins to manage, you'd define a 'admin' role
+-- and check `auth.role() = 'admin'`
+
+
+
+
+-- Create the posts table
+CREATE TABLE public.posts (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  created_at timestamp with time zone DEFAULT now() NOT NULL,
+  updated_at timestamp with time zone,
+
+  -- Foreign key linking to the profiles table (the user who made the post)
+  user_id uuid REFERENCES public.profiles(id) ON DELETE CASCADE NOT NULL,
+
+  -- Foreign key linking to the books table (the book the post is about)
+  book_id uuid REFERENCES public.books(id) ON DELETE CASCADE NOT NULL,
+
+  -- The URL of the image/screenshot ("frame")
+  image_url text NOT NULL,
+
+  -- Optional: User's caption or commentary for the post
+  caption text,
+
+  -- Optional: A specific page number or quote reference if applicable
+  page_reference text,
+
+  -- Optional: Is the post visible to everyone or just certain users? (e.g., 'public', 'private')
+  visibility text DEFAULT 'public' NOT NULL
+  CHECK (visibility IN ('public', 'private', 'friends')) -- Example valid values
+);
+
+-- Create an index on user_id for faster lookups of a user's posts
+CREATE INDEX idx_posts_user_id ON public.posts (user_id);
+
+-- Create an index on book_id for faster lookups of posts about a specific book
+CREATE INDEX idx_posts_book_id ON public.posts (book_id);
+
+-- Create an index on created_at for efficient chronological sorting
+CREATE INDEX idx_posts_created_at ON public.posts (created_at DESC);
+
+
+-- Set up Row Level Security (RLS)
+ALTER TABLE public.posts ENABLE ROW LEVEL SECURITY;
+
+-- Policy 1: Posts are viewable by everyone
+CREATE POLICY "Posts are viewable by everyone."
+  ON public.posts FOR SELECT
+  USING (visibility = 'public'); -- Only show 'public' posts to everyone
+
+-- Policy 2: Authenticated users can create their own posts
+CREATE POLICY "Authenticated users can create posts for themselves."
+  ON public.posts FOR INSERT
+  WITH CHECK (auth.uid() = user_id);
+
+-- Policy 3: Users can update their own posts
+CREATE POLICY "Users can update their own posts."
+  ON public.posts FOR UPDATE
+  USING (auth.uid() = user_id);
+
+-- Policy 4: Users can delete their own posts
+CREATE POLICY "Users can delete their own posts."
+  ON public.posts FOR DELETE
+  USING (auth.uid() = user_id);
