@@ -159,3 +159,19 @@ CREATE POLICY "Users can update their own posts."
 CREATE POLICY "Users can delete their own posts."
   ON public.posts FOR DELETE
   USING (auth.uid() = user_id);
+
+
+
+
+
+curl -X POST \
+  -H "Content-Type: application/json" \
+  -d '{
+    "user_id": "414a814b-c741-4608-8e56-e240cfaa016a",
+    "book_id": "24a7afd0-9e22-49a1-aad4-b09d815ef29b",
+    "image_url": "https://your-supabase-bucket.com/public/my-specific-frame.jpg",
+    "caption": "This frame perfectly captures the essence of the chapter!",
+    "page_reference": "Page 50",
+    "visibility": "public"
+  }' \
+  http://localhost:3000/api/posts
