@@ -1,0 +1,8 @@
+dist
+node_modules
+.astro
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+src/client/styles/colors.css
+TODO.md
